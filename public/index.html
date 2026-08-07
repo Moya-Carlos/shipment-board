@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Shipment Board</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/gridstack.js/12.3.3/gridstack.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gridstack.js/12.3.3/gridstack-all.min.js"></script>
+<style>
+  :root{
+    --blue:#1558EB; --blue-dark:#0B3FB8; --blue-tint:#EAF0FE;
+    --green:#1EA672; --green-tint:#E6F7EF;
+    --amber:#E28A1F; --amber-tint:#FCF1E1;
+    --gray:#8A8F98; --gray-tint:#F1F2F4;
+    --ink:#1B1E27; --ink-soft:#6B7080;
+    --line:#E6E8EC; --card:#FFFFFF; --page:#F4F6F9;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--page); color:var(--ink);
+    font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .topbar{
+    background:var(--blue); color:#fff; padding:16px 24px;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  .topbar h1{margin:0; font-size:19px; font-weight:700; letter-spacing:-0.2px;}
+  .topbar .sub{font-size:12.5px; opacity:0.85; margin-top:2px; font-weight:400;}
+  .topbar-right{font-size:12.5px; opacity:0.9; display:flex; align-items:center; gap:8px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:#6FE0A6;display:inline-block;}
+
+  .grid-stack{margin:16px;}
+  .panel{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    height:100%; display:flex; flex-direction:column; overflow:hidden;
+    box-shadow:0 1px 2px rgba(16,24,40,0.04);
+  }
+  .panel-head{
+    display:flex; align-items:center; gap:8px; padding:10px 14px;
+    border-bottom:1px solid var(--line); flex-shrink:0; background:#FAFBFC;
+  }
+  .panel-handle{
+    cursor:grab; color:#C4C7CE; font-size:13px; letter-spacing:1px; line-height:1;
+    user-select:none;
+  }
+  .panel-title{font-size:13px; font-weight:700; color:var(--ink);}
+  .panel-body{flex:1; overflow:auto; min-height:0;}
+  .grid-stack-item-content{inset:0 !important;}
+
+  .status-pill{font-size:9.5px; padding:2px 7px; border-radius:20px; font-weight:700; flex-shrink:0; white-space:nowrap;}
+  .st-scheduled{background:var(--gray-tint); color:var(--gray);}
+  .st-transit{background:var(--blue-tint); color:var(--blue);}
+  .st-delivered{background:var(--green-tint); color:var(--green);}
+
+  /* ---- Schedule: 3 region drop-zones ---- */
+  .schedule{display:flex; gap:12px; padding:12px; height:100%; min-width:640px;}
+  .region{flex:1; min-width:200px; display:flex; flex-direction:column;}
+  .region-head{display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; margin-bottom:4px; color:var(--blue);}
+  .region-underline{height:3px; width:56px; background:var(--blue); border-radius:2px; margin-bottom:10px; opacity:0.85;}
+  .region:nth-child(2) .region-head, .region:nth-child(2) .region-underline{color:var(--green); background:var(--green);}
+  .region:nth-child(3) .region-head{color:var(--amber);}
+  .region:nth-child(3) .region-underline{background:var(--amber);}
+  .region-count{
+    background:var(--gray-tint); color:var(--ink-soft); font-size:10.5px; font-weight:700;
+    padding:1px 7px; border-radius:20px; margin-left:auto;
+  }
+  .dropzone{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(128px, 1fr)); gap:8px;
+    flex:1; align-content:start; min-height:70px; border-radius:9px; padding:3px;
+    transition:background .12s;
+  }
+  .dropzone.hover{background:var(--blue-tint);}
+  .dropzone-empty{grid-column:1/-1; font-size:12px; color:#B7B5AC; font-style:italic; padding:6px 2px;}
+
+  .drivercard{
+    background:#fff; border:1px solid var(--line); border-radius:9px; padding:8px 9px;
+    cursor:grab; box-shadow:0 1px 2px rgba(16,24,40,0.05);
+  }
+  .drivercard.dragging{opacity:0.25;}
+  .drivercard .dc-name{font-size:12.5px; font-weight:700; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .drivercard .dc-route{font-size:10.5px; color:var(--ink-soft); margin-bottom:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .drivercard .dc-foot{display:flex; align-items:center; justify-content:space-between; gap:4px;}
+  .drivercard .dc-miles{font-size:10.5px; font-weight:700; color:var(--ink);}
+
+  /* ---- Drivers roster (bottom) ---- */
+  .roster{padding:8px;}
+  .roster-row{
+    display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:8px;
+    cursor:grab; border-bottom:1px solid #F0F1F3;
+  }
+  .roster-row.dragging{opacity:0.25;}
+  .roster-handle{color:#D5D7DC; font-size:12px; flex-shrink:0;}
+  .roster-name{font-size:13px; font-weight:700; width:140px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .roster-route{font-size:12px; color:var(--ink-soft); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .roster-miles{font-size:12px; font-weight:700; width:70px; flex-shrink:0; text-align:right;}
+  .roster-region{font-size:10.5px; color:var(--ink-soft); width:90px; flex-shrink:0;}
+  .roster-add{
+    font-size:12.5px; color:var(--ink-soft); padding:9px; text-align:center; cursor:pointer; border-radius:8px; font-weight:600;
+  }
+  .roster-add:hover{background:var(--gray-tint);}
+
+  /* ---- Modal ---- */
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(20,24,34,0.45); display:flex;
+    align-items:center; justify-content:center; z-index:2000;
+  }
+  .modal-box{background:#fff; border-radius:12px; padding:18px; width:320px; box-shadow:0 12px 32px rgba(0,0,0,0.25);}
+  .modal-box h3{margin:0 0 14px; font-size:14.5px;}
+  .modal-field{margin-bottom:12px;}
+  .modal-field label{display:block; font-size:11px; color:var(--ink-soft); margin-bottom:4px; font-weight:600;}
+  .modal-field input, .modal-field select{
+    width:100%; border:1px solid var(--line); border-radius:7px; padding:7px 9px;
+    font-size:13px; font-family:inherit; outline:none;
+  }
+  .modal-field input:focus, .modal-field select:focus{border-color:var(--blue);}
+  .modal-row{display:flex; gap:8px;}
+  .modal-row .modal-field{flex:1;}
+  .modal-actions{display:flex; justify-content:space-between; margin-top:16px; gap:8px;}
+  .modal-btn{border:none; border-radius:7px; padding:8px 14px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:inherit;}
+  .modal-btn.save{background:var(--blue); color:#fff;}
+  .modal-btn.cancel{background:var(--gray-tint); color:var(--ink);}
+  .modal-btn.delete{background:#FDECEA; color:#C0392B;}
+
+  /* ---- PIN gate ---- */
+  .pin-gate{
+    position:fixed; inset:0; background:var(--blue); display:flex;
+    align-items:center; justify-content:center; z-index:5000; flex-direction:column;
+  }
+  .pin-box{background:#fff; border-radius:14px; padding:28px; width:280px; text-align:center; box-shadow:0 12px 32px rgba(0,0,0,0.25);}
+  .pin-box h2{margin:0 0 6px; font-size:17px;}
+  .pin-box p{margin:0 0 16px; font-size:12.5px; color:var(--ink-soft);}
+  .pin-box input{
+    width:100%; text-align:center; letter-spacing:4px; font-size:20px; padding:10px;
+    border:1.5px solid var(--line); border-radius:8px; outline:none; font-family:inherit;
+    box-sizing:border-box;
+  }
+  .pin-box input:focus{border-color:var(--blue);}
+  .pin-box button{
+    width:100%; margin-top:12px; background:var(--blue); color:#fff; border:none;
+    border-radius:8px; padding:10px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit;
+  }
+  .pin-error{color:#C0392B; font-size:12px; margin-top:10px; min-height:16px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <h1>Shipment Board</h1>
+    <div class="sub">Drag drivers between Houston / WTX / Future Loads and the roster below · click any card to edit it</div>
+  </div>
+  <div class="topbar-right"><span class="dot"></span> <span id="save-indicator">Loading…</span></div>
+</div>
+
+<div class="pin-gate" id="pin-gate">
+  <div class="pin-box">
+    <h2>Shipment Board</h2>
+    <p>Enter the team PIN to continue</p>
+    <input type="password" id="pin-input" inputmode="numeric" maxlength="12" placeholder="••••" autofocus />
+    <button id="pin-submit">Unlock</button>
+    <div class="pin-error" id="pin-error"></div>
+  </div>
+</div>
+
+<div class="grid-stack"></div>
+
+<script>
+const REGIONS = [
+  {key:"houston", label:"Houston"},
+  {key:"wtx", label:"WTX"},
+  {key:"future", label:"Future Loads"},
+];
+const STATUS_LABEL = {scheduled:"Scheduled", transit:"In Transit", delivered:"Delivered"};
+const STORAGE_KEY = "shipment-board-v1";
+
+let modalOpen = false;
+let dragActive = false;
+let saveTimer = null;
+let driverSeq = 0;
+
+function uid(){ return "d" + (driverSeq++) + "_" + Date.now().toString(36); }
+
+let drivers = [
+  {id: uid(), name:"Jaime Martinez", from:"Houston, TX", to:"Midland, TX", miles:320, status:"transit", column:"houston"},
+  {id: uid(), name:"Bradley Hudnall", from:"Houston, TX", to:"Odessa, TX", miles:290, status:"scheduled", column:"houston"},
+  {id: uid(), name:"Aurelio Diaz", from:"Conroe, TX", to:"Carthage, TX", miles:140, status:"delivered", column:"houston"},
+  {id: uid(), name:"Miguel Sanchez", from:"Roswell, NM", to:"Odessa, TX", miles:210, status:"transit", column:"wtx"},
+  {id: uid(), name:"David Garcia", from:"Midland, TX", to:"Lea, NM", miles:95, status:"scheduled", column:"wtx"},
+  {id: uid(), name:"Juan Alaniz", from:"", to:"", miles:0, status:"scheduled", column:"roster"},
+  {id: uid(), name:"James Garcia", from:"", to:"", miles:0, status:"scheduled", column:"roster"},
+  {id: uid(), name:"Joel Granado", from:"", to:"", miles:0, status:"scheduled", column:"roster"},
+];
+
+function getPin(){ return sessionStorage.getItem("board-pin") || ""; }
+
+function persist(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async ()=>{
+    try{
+      const res = await fetch("/api/board", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Pin": getPin() },
+        body: JSON.stringify({drivers, driverSeq}),
+      });
+      if(!res.ok) throw new Error("save failed");
+      flashSaved();
+    }catch(e){
+      flashError();
+    }
+  }, 250);
+}
+function flashSaved(){
+  const el = document.getElementById("save-indicator");
+  if(!el) return;
+  el.textContent = "Saved ✓"; el.style.color = "#6FE0A6";
+  setTimeout(()=>{ el.textContent = "Live board"; el.style.color = ""; }, 1200);
+}
+function flashError(){
+  const el = document.getElementById("save-indicator");
+  if(el) { el.textContent = "Couldn't save"; el.style.color = "#FFB4A8"; }
+}
+async function loadState(silent){
+  try{
+    const res = await fetch("/api/board", { headers: { "X-Pin": getPin() } });
+    if(!res.ok) throw new Error("load failed");
+    const parsed = await res.json();
+    if(!modalOpen && !dragActive){
+      if(parsed.drivers) drivers = parsed.drivers;
+      if(parsed.driverSeq) driverSeq = parsed.driverSeq;
+      return true;
+    }
+  }catch(e){
+    if(!silent){
+      const el = document.getElementById("save-indicator");
+      if(el) el.textContent = "Starting fresh";
+    }
+  }
+  return false;
+}
+
+function refreshAll(){
+  renderSchedule();
+  renderRoster();
+}
+
+// ---------- Schedule (Houston / WTX / Future Loads) ----------
+function renderSchedule(){
+  const el = document.getElementById("schedule-body");
+  el.innerHTML = "";
+  REGIONS.forEach(region=>{
+    const list = drivers.filter(d=>d.column===region.key);
+    const regionEl = document.createElement("div");
+    regionEl.className = "region";
+    regionEl.innerHTML = `
+      <div class="region-head">${region.label}<span class="region-count">${list.length}</span></div>
+      <div class="region-underline"></div>
+    `;
+    const zone = document.createElement("div");
+    zone.className = "dropzone";
+    zone.dataset.col = region.key;
+    if(list.length === 0){
+      const empty = document.createElement("div");
+      empty.className = "dropzone-empty";
+      empty.textContent = "Drop drivers here";
+      zone.appendChild(empty);
+    }
+    list.forEach(d=> zone.appendChild(renderTile(d)));
+    regionEl.appendChild(zone);
+    el.appendChild(regionEl);
+  });
+}
+
+function renderTile(d){
+  const el = document.createElement("div");
+  el.className = "drivercard";
+  el.innerHTML = `
+    <div class="dc-name">${d.name}</div>
+    <div class="dc-route">${d.from && d.to ? d.from + " → " + d.to : "No route set"}</div>
+    <div class="dc-foot">
+      <span class="dc-miles">${d.miles ? d.miles + " mi" : "—"}</span>
+      <span class="status-pill st-${d.status}">${STATUS_LABEL[d.status]}</span>
+    </div>
+  `;
+  el.addEventListener("pointerdown", (e)=> onDriverPointerDown(e, d));
+  return el;
+}
+
+// ---------- Drivers roster ----------
+function renderRoster(){
+  const el = document.getElementById("roster-body");
+  el.innerHTML = "";
+  const unassigned = drivers.filter(d=>d.column==="roster");
+  if(unassigned.length === 0){
+    const empty = document.createElement("div");
+    empty.className = "dropzone-empty";
+    empty.style.padding = "10px 4px";
+    empty.textContent = "All drivers are assigned to a region above";
+    el.appendChild(empty);
+  }
+  const zone = document.createElement("div");
+  zone.className = "dropzone";
+  zone.style.gridTemplateColumns = "1fr";
+  zone.style.gap = "0";
+  zone.dataset.col = "roster";
+  unassigned.forEach(d=>{
+    const row = document.createElement("div");
+    row.className = "roster-row";
+    row.innerHTML = `
+      <span class="roster-handle">⋮⋮</span>
+      <span class="roster-name">${d.name}</span>
+      <span class="roster-route">${d.from && d.to ? d.from + " → " + d.to : "No route set"}</span>
+      <span class="roster-miles">${d.miles ? d.miles + " mi" : "—"}</span>
+      <span class="status-pill st-${d.status}">${STATUS_LABEL[d.status]}</span>
+    `;
+    row.addEventListener("pointerdown", (e)=> onDriverPointerDown(e, d));
+    zone.appendChild(row);
+  });
+  el.appendChild(zone);
+
+  const addBtn = document.createElement("div");
+  addBtn.className = "roster-add";
+  addBtn.textContent = "+ Add driver";
+  addBtn.onclick = () => {
+    const d = {id: uid(), name:"New driver", from:"", to:"", miles:0, status:"scheduled", column:"roster"};
+    drivers.push(d);
+    refreshAll();
+    persist();
+    openDriverEditor(d.id);
+  };
+  el.appendChild(addBtn);
+}
+
+// ---------- Drag (click = edit, drag past threshold = move) ----------
+function onDriverPointerDown(e, driver){
+  const startX = e.clientX, startY = e.clientY;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const offX = e.clientX - rect.left, offY = e.clientY - rect.top;
+  const el = e.currentTarget;
+  let dragging = false;
+  let ghost = null;
+
+  function move(ev){
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    if(!dragging && Math.hypot(dx, dy) > 6){
+      dragging = true;
+      dragActive = true;
+      el.classList.add("dragging");
+      ghost = document.createElement("div");
+      ghost.className = "drivercard";
+      ghost.style.position = "fixed";
+      ghost.style.width = Math.max(rect.width, 130) + "px";
+      ghost.style.zIndex = 999;
+      ghost.style.pointerEvents = "none";
+      ghost.style.boxShadow = "0 8px 20px rgba(0,0,0,0.18)";
+      ghost.innerHTML = `<div class="dc-name">${driver.name}</div>`;
+      document.body.appendChild(ghost);
+    }
+    if(dragging){
+      ghost.style.left = (ev.clientX - offX) + "px";
+      ghost.style.top = (ev.clientY - offY) + "px";
+      document.querySelectorAll(".dropzone").forEach(z=>z.classList.remove("hover"));
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+      const zone = hit && hit.closest(".dropzone");
+      if(zone) zone.classList.add("hover");
+    }
+  }
+
+  function up(ev){
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    document.querySelectorAll(".dropzone").forEach(z=>z.classList.remove("hover"));
+    dragActive = false;
+
+    if(dragging){
+      const hit = document.elementFromPoint(ev.clientX, ev.clientY);
+      const zone = hit && hit.closest(".dropzone");
+      if(zone){
+        driver.column = zone.dataset.col;
+      }
+      ghost.remove();
+      refreshAll();
+      persist();
+    } else {
+      openDriverEditor(driver.id);
+    }
+  }
+
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+}
+
+// ---------- Edit modal ----------
+function openDriverEditor(driverId){
+  const d = drivers.find(x=>x.id===driverId);
+  if(!d) return;
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop";
+  backdrop.innerHTML = `
+    <div class="modal-box">
+      <h3>Edit driver</h3>
+      <div class="modal-field">
+        <label>Driver name</label>
+        <input type="text" id="d-name" value="${d.name.replace(/"/g,'&quot;')}" />
+      </div>
+      <div class="modal-row">
+        <div class="modal-field">
+          <label>From</label>
+          <input type="text" id="d-from" value="${d.from.replace(/"/g,'&quot;')}" placeholder="City, ST" />
+        </div>
+        <div class="modal-field">
+          <label>To</label>
+          <input type="text" id="d-to" value="${d.to.replace(/"/g,'&quot;')}" placeholder="City, ST" />
+        </div>
+      </div>
+      <div class="modal-row">
+        <div class="modal-field">
+          <label>Mileage</label>
+          <input type="number" id="d-miles" min="0" value="${d.miles || 0}" />
+        </div>
+        <div class="modal-field">
+          <label>Status</label>
+          <select id="d-status">
+            <option value="scheduled" ${d.status==='scheduled'?'selected':''}>Scheduled</option>
+            <option value="transit" ${d.status==='transit'?'selected':''}>In Transit</option>
+            <option value="delivered" ${d.status==='delivered'?'selected':''}>Delivered</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-field">
+        <label>Board</label>
+        <select id="d-column">
+          <option value="roster" ${d.column==='roster'?'selected':''}>Drivers (unassigned)</option>
+          ${REGIONS.map(r=>`<option value="${r.key}" ${d.column===r.key?'selected':''}>${r.label}</option>`).join("")}
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn delete" id="d-delete">Delete</button>
+        <div style="display:flex; gap:8px;">
+          <button class="modal-btn cancel" id="d-cancel">Cancel</button>
+          <button class="modal-btn save" id="d-save">Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(backdrop);
+  modalOpen = true;
+  const close = () => { backdrop.remove(); modalOpen = false; };
+  backdrop.addEventListener("click", (e)=>{ if(e.target===backdrop) close(); });
+  backdrop.querySelector("#d-cancel").onclick = close;
+  backdrop.querySelector("#d-delete").onclick = () => {
+    drivers = drivers.filter(x=>x.id!==driverId);
+    close();
+    refreshAll();
+    persist();
+  };
+  backdrop.querySelector("#d-save").onclick = () => {
+    const name = backdrop.querySelector("#d-name").value.trim();
+    if(!name) return;
+    d.name = name;
+    d.from = backdrop.querySelector("#d-from").value.trim();
+    d.to = backdrop.querySelector("#d-to").value.trim();
+    d.miles = Math.max(0, parseInt(backdrop.querySelector("#d-miles").value, 10) || 0);
+    d.status = backdrop.querySelector("#d-status").value;
+    d.column = backdrop.querySelector("#d-column").value;
+    close();
+    refreshAll();
+    persist();
+  };
+}
+
+// ---------- PIN gate ----------
+function setupPinGate(onUnlock){
+  const gate = document.getElementById("pin-gate");
+  const input = document.getElementById("pin-input");
+  const btn = document.getElementById("pin-submit");
+  const err = document.getElementById("pin-error");
+
+  async function tryUnlock(){
+    const pin = input.value.trim();
+    if(!pin) return;
+    err.textContent = "Checking…";
+    const res = await fetch("/api/board", { headers: { "X-Pin": pin } });
+    if(res.ok){
+      sessionStorage.setItem("board-pin", pin);
+      gate.style.display = "none";
+      onUnlock();
+    } else {
+      err.textContent = "Wrong PIN — try again";
+      input.value = "";
+      input.focus();
+    }
+  }
+
+  btn.onclick = tryUnlock;
+  input.addEventListener("keydown", (e)=>{ if(e.key==="Enter") tryUnlock(); });
+
+  // Already unlocked this session?
+  const savedPin = getPin();
+  if(savedPin){
+    fetch("/api/board", { headers: { "X-Pin": savedPin } }).then(res=>{
+      if(res.ok){
+        gate.style.display = "none";
+        onUnlock();
+      }
+    });
+  }
+}
+
+// ---------- Build panels ----------
+document.addEventListener("DOMContentLoaded", ()=>{
+  setupPinGate(initDashboard);
+});
+
+async function initDashboard(){
+  const gridEl = document.querySelector(".grid-stack");
+  gridEl.innerHTML = `
+    <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="12" gs-h="7">
+      <div class="grid-stack-item-content panel">
+        <div class="panel-head"><span class="panel-handle">⋮⋮</span><span class="panel-title">Schedule</span></div>
+        <div class="panel-body">
+          <div class="schedule" id="schedule-body"></div>
+        </div>
+      </div>
+    </div>
+    <div class="grid-stack-item" gs-x="0" gs-y="7" gs-w="12" gs-h="5">
+      <div class="grid-stack-item-content panel">
+        <div class="panel-head"><span class="panel-handle">⋮⋮</span><span class="panel-title">Drivers</span></div>
+        <div class="panel-body">
+          <div class="roster" id="roster-body"></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  GridStack.init({
+    cellHeight: 46,
+    margin: 8,
+    float: false,
+    handle: ".panel-handle",
+    animate: true,
+  });
+
+  const loaded = await loadState(false);
+  if(!loaded) persist();
+
+  refreshAll();
+  const indicator = document.getElementById("save-indicator");
+  if(indicator) indicator.textContent = "Live board";
+
+  setInterval(async ()=>{
+    const changed = await loadState(true);
+    if(changed) refreshAll();
+  }, 3500);
+}
+</script>
+</body>
+</html>
