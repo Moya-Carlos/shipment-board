@@ -123,6 +123,23 @@
   .modal-btn.cancel{background:var(--gray-tint); color:var(--ink);}
   .modal-btn.delete{background:#FDECEA; color:#C0392B;}
 
+  /* ---- Driver background colors ---- */
+  .bg-yellow{background:#FFF6D6 !important;}
+  .bg-purple{background:#F1E9FB !important;}
+  .bg-green{background:#E4F7EC !important;}
+
+  .swatch-row{display:flex; gap:9px;}
+  .swatch{
+    width:28px; height:28px; border-radius:7px; cursor:pointer;
+    border:2px solid transparent; box-sizing:border-box;
+  }
+  .swatch.selected{border-color:var(--blue);}
+  .swatch.none{background:#fff; border-color:#D5D7DC; border-style:dashed;}
+  .swatch.none.selected{border-style:solid;}
+  .swatch.yellow{background:#FFF6D6;}
+  .swatch.purple{background:#F1E9FB;}
+  .swatch.green{background:#E4F7EC;}
+
   /* ---- PIN gate ---- */
   .pin-gate{
     position:fixed; inset:0; background:var(--blue); display:flex;
@@ -274,7 +291,7 @@ function renderSchedule(){
 
 function renderTile(d){
   const el = document.createElement("div");
-  el.className = "drivercard";
+  el.className = "drivercard" + (d.color ? " bg-" + d.color : "");
   el.innerHTML = `
     <div class="dc-name">${d.name}</div>
     <div class="dc-route">${d.from && d.to ? d.from + " → " + d.to : "No route set"}</div>
@@ -306,7 +323,7 @@ function renderRoster(){
   zone.dataset.col = "roster";
   unassigned.forEach(d=>{
     const row = document.createElement("div");
-    row.className = "roster-row";
+    row.className = "roster-row" + (d.color ? " bg-" + d.color : "");
     row.innerHTML = `
       <span class="roster-handle">⋮⋮</span>
       <span class="roster-name">${d.name}</span>
@@ -435,6 +452,15 @@ function openDriverEditor(driverId){
           ${REGIONS.map(r=>`<option value="${r.key}" ${d.column===r.key?'selected':''}>${r.label}</option>`).join("")}
         </select>
       </div>
+      <div class="modal-field">
+        <label>Background</label>
+        <div class="swatch-row" id="d-color-row">
+          <div class="swatch none ${!d.color?'selected':''}" data-color="" title="None"></div>
+          <div class="swatch yellow ${d.color==='yellow'?'selected':''}" data-color="yellow" title="Light yellow"></div>
+          <div class="swatch purple ${d.color==='purple'?'selected':''}" data-color="purple" title="Light purple"></div>
+          <div class="swatch green ${d.color==='green'?'selected':''}" data-color="green" title="Light green"></div>
+        </div>
+      </div>
       <div class="modal-actions">
         <button class="modal-btn delete" id="d-delete">Delete</button>
         <div style="display:flex; gap:8px;">
@@ -449,6 +475,15 @@ function openDriverEditor(driverId){
   const close = () => { backdrop.remove(); modalOpen = false; };
   backdrop.addEventListener("click", (e)=>{ if(e.target===backdrop) close(); });
   backdrop.querySelector("#d-cancel").onclick = close;
+
+  const colorRow = backdrop.querySelector("#d-color-row");
+  colorRow.querySelectorAll(".swatch").forEach(sw=>{
+    sw.onclick = () => {
+      colorRow.querySelectorAll(".swatch").forEach(s=>s.classList.remove("selected"));
+      sw.classList.add("selected");
+    };
+  });
+
   backdrop.querySelector("#d-delete").onclick = () => {
     drivers = drivers.filter(x=>x.id!==driverId);
     close();
@@ -464,6 +499,8 @@ function openDriverEditor(driverId){
     d.miles = Math.max(0, parseInt(backdrop.querySelector("#d-miles").value, 10) || 0);
     d.status = backdrop.querySelector("#d-status").value;
     d.column = backdrop.querySelector("#d-column").value;
+    const selectedSwatch = colorRow.querySelector(".swatch.selected");
+    d.color = selectedSwatch ? selectedSwatch.dataset.color : "";
     close();
     refreshAll();
     persist();
